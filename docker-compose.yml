@@ -1,0 +1,63 @@
+x-app-environment: &app-environment
+  DATABASE__URL: postgresql+asyncpg://caching_user:caching_password@postgres:5432/caching_db
+  TRANSFORMER__DELAY_SECONDS: ${TRANSFORMER__DELAY_SECONDS:-0.5}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  website:
+    build: .
+    image: caching_svc:latest
+    container_name: caching_svc_website
+    environment: *app-environment
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build: .
+    image: caching_svc:latest
+    container_name: caching_svc_migrate
+    command: ["alembic", "upgrade", "head"]
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: caching_svc_postgres
+    environment:
+      POSTGRES_DB: caching_db
+      POSTGRES_USER: caching_user
+      POSTGRES_PASSWORD: caching_password
+    ports:
+      - "5441:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caching_user -d caching_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: caching_svc_postgres_test
+    environment:
+      POSTGRES_DB: caching_test
+      POSTGRES_USER: caching_test
+      POSTGRES_PASSWORD: caching_test_password
+    ports:
+      - "5442:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caching_test -d caching_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres_data:

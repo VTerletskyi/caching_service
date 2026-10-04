@@ -1,0 +1,125 @@
+[tool.poetry]
+name = "caching_svc"
+version = "0.1.0"
+description = "Caching Service: generates payloads from transformed strings and caches the transformations"
+authors = ["Vasyl Terletskyi <terletskyivasyl@gmail.com>"]
+readme = "README.md"
+
+packages = [
+    { include = "caching_svc" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = "^0.142.0"
+uvicorn = "^0.54.0"
+sqlalchemy = { version = "^2.0.44", extras = ["asyncio"] }
+asyncpg = "^0.30.0"
+alembic = "^1.16.0"
+pydantic = "^2.11.0"
+pydantic-settings = "^2.11.0"
+uuid6 = "^2025.0.1"
+httpx = "^0.28.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+website = "caching_svc.apps.website.app:run"
+cache-cli = "caching_svc.apps.cli.main:run"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1.0"
+pytest-asyncio = "^1.2.0"
+pytest-cov = "^7.0.0"
+pytest-dotenv = "^0.5.2"
+ruff = "^0.16.0"
+ty = "^0.0.84"
+
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests/unit", "tests/integration"]
+
+# Default behavior: run only unit tests, be strict about config/markers
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+    "-m", "not integration",
+    "--import-mode=importlib",
+]
+markers = [
+  "unit: fast, isolated unit tests",
+  "integration: tests touching DB/network/external deps (skipped by default)",
+]
+asyncio_mode = "auto"
+env_files = [".env.test"]
+
+
+[tool.ty.src]
+exclude = ["tests/**", "alembic/**"]
+
+[tool.coverage.run]
+source = ["caching_svc"]
+branch = true
+# SQLAlchemy async runs DB calls in greenlets; without this, code after them is not traced.
+concurrency = ["greenlet", "thread"]
+omit = [
+  "*/tests/*",
+  "*/.venv/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+include = ["caching_svc/**/*.py", "tests/**/*.py", "alembic/**/*.py", "pyproject.toml"]
+src = ["caching_svc"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle (errors)
+    "W",   # pycodestyle (warnings)
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear (common bugs)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "N",   # pep8-naming
+    "RET", # flake8-return (early returns, clarity)
+    "ARG", # flake8-unused-arguments
+    "ISC", # implicit string concat
+    "Q",   # flake8-quotes (consistent quotes)
+    "T20", # print() calls
+    "RUF", # Ruff-specific rules
+    "C90", # McCabe complexity (C901)
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "B008",  # FastAPI Depends() in argument defaults
+]
+mccabe = { max-complexity = 12 }
+
+[tool.ruff.lint.isort]
+known-first-party = ["caching_svc"]
+combine-as-imports = true
+lines-between-types = 1
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG001", "ARG002", "ARG005"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

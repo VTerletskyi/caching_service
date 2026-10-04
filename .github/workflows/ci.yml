@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install poetry==2.3.4
+      - run: poetry install
+      - run: poetry run ruff check caching_svc tests alembic
+      - run: poetry run ruff format --check caching_svc tests alembic
+      - run: poetry run ty check
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres-test:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: caching_test
+          POSTGRES_USER: caching_test
+          POSTGRES_PASSWORD: caching_test_password
+        ports:
+          - 5442:5432
+        options: >-
+          --health-cmd "pg_isready -U caching_test -d caching_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pipx install poetry==2.3.4
+      - run: poetry install
+      - run: poetry run pytest -m "unit or integration" --cov --cov-report=term
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t caching_svc:ci .
